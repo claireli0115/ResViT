@@ -16,7 +16,7 @@ class ResViT_model(BaseModel):
         self.isTrain = opt.isTrain
 
         # load/define networks
-        self.netG = networks.define_G(2, opt.output_nc, opt.ngf,
+        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
                                       opt.which_model_netG,opt.vit_name,opt.fineSize,opt.pre_trained_path, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids,
                                       pre_trained_trans=opt.pre_trained_transformer,pre_trained_resnet = opt.pre_trained_resnet)
 
@@ -24,7 +24,7 @@ class ResViT_model(BaseModel):
         if self.isTrain:
             self.lambda_f = opt.lambda_f
             use_sigmoid = opt.no_lsgan
-            self.netD = networks.define_D(opt.input_nc + opt.output_nc-1, opt.ndf,
+            self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,
                                           opt.which_model_netD,opt.vit_name,opt.fineSize,
                                           opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, self.gpu_ids)
         if not self.isTrain or opt.continue_train:
@@ -69,14 +69,14 @@ class ResViT_model(BaseModel):
 
     def forward(self):
         self.real_A = Variable(self.input_A)
-        self.fake_B= self.netG(self.real_A[:,0:2,:,:])
+        self.fake_B= self.netG(self.real_A)
         self.real_B = Variable(self.input_B)
 
     # no backprop gradients
     def test(self):
         with torch.no_grad():
             self.real_A = Variable(self.input_A)
-            self.fake_B = self.netG(self.real_A[:,0:2,:,:])
+            self.fake_B = self.netG(self.real_A)
             self.real_B = Variable(self.input_B)
 
     # get image paths
@@ -86,11 +86,11 @@ class ResViT_model(BaseModel):
     def backward_D(self):
         # Fake
         # stop backprop to the generator by detaching fake_B
-        fake_AB = self.fake_AB_pool.query(torch.cat((self.real_A[:,0:2,:,:], self.fake_B), 1).data)
+        fake_AB = self.fake_AB_pool.query(torch.cat((self.real_A, self.fake_B), 1).data)
         pred_fake = self.netD(fake_AB.detach())
         self.loss_D_fake = self.criterionGAN(pred_fake, False) #
         # Real
-        real_AB = torch.cat((self.real_A[:,0:2,:,:], self.real_B), 1)
+        real_AB = torch.cat((self.real_A, self.real_B), 1)
         pred_real = self.netD(real_AB)
         self.loss_D_real = self.criterionGAN(pred_real, True)
         # Combined loss
@@ -101,7 +101,7 @@ class ResViT_model(BaseModel):
         
     def backward_G(self):
         # First, G(A) should fake the discriminator
-        fake_AB = torch.cat((self.real_A[:,0:2,:,:], self.fake_B), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)*self.opt.lambda_adv
         # Second, G(A) = B
