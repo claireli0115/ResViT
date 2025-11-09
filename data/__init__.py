@@ -18,6 +18,9 @@ def CreateDataset(opt):
         elif opt.dataset_mode == 'unaligned':
             from data.unaligned_dataset import UnalignedDataset
             dataset = UnalignedDataset()
+        elif opt.dataset_mode == 'nii_aligned':
+            from data.nii_aligned_dataset import NiiAlignedDataset
+            dataset = NiiAlignedDataset()
         elif opt.dataset_mode == 'single':
             from data.single_dataset import SingleDataset
             dataset = SingleDataset()
